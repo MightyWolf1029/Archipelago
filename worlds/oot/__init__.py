@@ -25,7 +25,7 @@ from .Options import OoTOptions, oot_option_groups
 from .Utils import data_path, read_json
 from .OoTR.LocationList import business_scrubs, set_drop_location_names, dungeon_song_locations
 from .DungeonList import dungeon_table, create_dungeons
-from .OoTR.LogicTricks import normalized_name_tricks
+from .OoTR.SettingsList import normalized_name_tricks
 from .OoTR.Rom import Rom
 from .OoTR.Patches import OoTContainer, patch_rom
 from .OoTR.N64Patch import create_patch_file

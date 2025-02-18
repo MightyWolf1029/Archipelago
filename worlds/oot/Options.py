@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from Options import Option, DefaultOnToggle, Toggle, Range, OptionSet, DeathLink, PlandoConnections, \
     PerGameCommonOptions, OptionGroup
 from .OoTR.EntranceShuffle import entrance_shuffle_table
-from .OoTR.LogicTricks import normalized_name_tricks
+from .OoTR.SettingsList import normalized_name_tricks
 from .ColorSFXOptions import *
 
 
