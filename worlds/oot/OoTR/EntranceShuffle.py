@@ -5,7 +5,7 @@ from worlds.generic.Rules import set_rule, add_rule
 from BaseClasses import CollectionState
 
 from .Hints import get_hint_area, HintAreaNotFound
-from .Regions import TimeOfDay
+from .Region import TimeOfDay
 
 
 def set_all_entrances_data(world, player):
