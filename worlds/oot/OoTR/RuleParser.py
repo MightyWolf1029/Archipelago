@@ -6,7 +6,8 @@ import re
 
 from .ItemList import item_table
 from .Location import OOTLocation
-from .Regions import TimeOfDay, OOTRegion
+from ..Region import OOTRegion # This dependency will eventually be removed
+from .Region import TimeOfDay
 from BaseClasses import CollectionState as State
 from .Utils import data_path, read_json
 

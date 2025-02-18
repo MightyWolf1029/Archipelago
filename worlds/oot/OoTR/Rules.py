@@ -2,7 +2,7 @@ from collections import deque
 import logging
 import typing
 
-from .Regions import TimeOfDay
+from .Region import TimeOfDay
 from ..DungeonList import dungeon_table
 from .Hints import HintArea
 from .Item import oot_is_item_of_type

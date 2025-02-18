@@ -18,7 +18,8 @@ from .OoTR.Hints import HintArea, HintAreaNotFound, hint_dist_keys, get_hint_are
 from .OoTR.Item import OOTItem, oot_data_to_ap_id, oot_is_item_of_type
 from .OoTR.ItemList import item_table
 from .OoTR.ItemPool import generate_itempool, get_junk_item, get_junk_pool
-from .OoTR.Regions import OOTRegion, TimeOfDay
+from .Region import OOTRegion
+from .OoTR.Region import TimeOfDay
 from .OoTR.Rules import set_rules, set_shop_rules, set_entrances_based_rules
 from .OoTR.RuleParser import Rule_AST_Transformer
 from .Options import OoTOptions, oot_option_groups
