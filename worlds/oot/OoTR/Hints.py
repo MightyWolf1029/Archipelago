@@ -11,7 +11,7 @@ import json
 from enum import Enum
 
 from BaseClasses import Region
-from .Items import OOTItem
+from .Item import OOTItem
 from .HintList import getHint, getHintGroup, Hint, hintExclusions, \
     misc_item_hint_table, misc_location_hint_table
 from .Messages import COLOR_MAP, update_message_by_id

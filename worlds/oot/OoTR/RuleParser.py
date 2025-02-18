@@ -4,7 +4,7 @@ from inspect import signature, _ParameterKind
 import logging
 import re
 
-from .Items import item_table
+from .ItemList import item_table
 from .Location import OOTLocation
 from .Regions import TimeOfDay, OOTRegion
 from BaseClasses import CollectionState as State
