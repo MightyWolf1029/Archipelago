@@ -1,7 +1,7 @@
 # Quick script to build top-level color and sfx options for pickling
 
-from OoTR.Colors import *
-import OoTR.Sounds as sfx
+from .OoTR.Colors import *
+from .OoTR import Sounds as sfx
 
 
 def assemble_color_option(f, internal_name: str, func, display_name: str, default_option: str, outer=False):

@@ -10,25 +10,25 @@ from string import printable
 
 logger = logging.getLogger("Ocarina of Time")
 
-from OoTR.Location import OOTLocation, LocationFactory, location_name_to_id, build_location_name_groups
-from OoTR.Entrance import OOTEntrance
-from OoTR.EntranceShuffle import shuffle_random_entrances, entrance_shuffle_table, EntranceShuffleError
-from OoTR.HintList import getRequiredHints
-from OoTR.Hints import HintArea, HintAreaNotFound, hint_dist_keys, get_hint_area, buildWorldGossipHints
-from OoTR.Items import OOTItem, item_table, oot_data_to_ap_id, oot_is_item_of_type
-from OoTR.ItemPool import generate_itempool, get_junk_item, get_junk_pool
-from OoTR.Regions import OOTRegion, TimeOfDay
-from OoTR.Rules import set_rules, set_shop_rules, set_entrances_based_rules
-from OoTR.RuleParser import Rule_AST_Transformer
+from .OoTR.Location import OOTLocation, LocationFactory, location_name_to_id, build_location_name_groups
+from .OoTR.Entrance import OOTEntrance
+from .OoTR.EntranceShuffle import shuffle_random_entrances, entrance_shuffle_table, EntranceShuffleError
+from .OoTR.HintList import getRequiredHints
+from .OoTR.Hints import HintArea, HintAreaNotFound, hint_dist_keys, get_hint_area, buildWorldGossipHints
+from .OoTR.Items import OOTItem, item_table, oot_data_to_ap_id, oot_is_item_of_type
+from .OoTR.ItemPool import generate_itempool, get_junk_item, get_junk_pool
+from .OoTR.Regions import OOTRegion, TimeOfDay
+from .OoTR.Rules import set_rules, set_shop_rules, set_entrances_based_rules
+from .OoTR.RuleParser import Rule_AST_Transformer
 from .Options import OoTOptions, oot_option_groups
-from OoTR.Utils import data_path, read_json
-from OoTR.LocationList import business_scrubs, set_drop_location_names, dungeon_song_locations
+from .Utils import data_path, read_json
+from .OoTR.LocationList import business_scrubs, set_drop_location_names, dungeon_song_locations
 from .DungeonList import dungeon_table, create_dungeons
-from OoTR.LogicTricks import normalized_name_tricks
-from OoTR.Rom import Rom
-from OoTR.Patches import OoTContainer, patch_rom
-from OoTR.N64Patch import create_patch_file
-from OoTR.Cosmetics import patch_cosmetics
+from .OoTR.LogicTricks import normalized_name_tricks
+from .OoTR.Rom import Rom
+from .OoTR.Patches import OoTContainer, patch_rom
+from .OoTR.N64Patch import create_patch_file
+from .OoTR.Cosmetics import patch_cosmetics
 
 from settings import get_settings
 from BaseClasses import MultiWorld, CollectionState, Tutorial, LocationProgressType

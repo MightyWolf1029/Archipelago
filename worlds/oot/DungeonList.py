@@ -1,7 +1,7 @@
 import os
 
-from OoTR.Dungeon import Dungeon
-from OoTR.Utils import data_path
+from .OoTR.Dungeon import Dungeon
+from .OoTR.Utils import data_path
 
 
 dungeon_table = [
