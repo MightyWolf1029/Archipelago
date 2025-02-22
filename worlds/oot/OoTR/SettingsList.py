@@ -1,4 +1,4 @@
-known_logic_tricks = {
+logic_tricks = {
     # General tricks
 
     'Pass Through Visible One-Way Collisions': {
@@ -1544,5 +1544,3 @@ known_logic_tricks = {
                     especially precise.
                     '''},
 }
-
-normalized_name_tricks = {trick.casefold(): info for (trick, info) in known_logic_tricks.items()}
