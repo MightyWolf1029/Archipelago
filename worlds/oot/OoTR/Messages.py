@@ -255,8 +255,6 @@ ITEM_MESSAGES = {
     0x90FA: "\x08\x06\x49\x05\x41WINNER\x05\x40!\x04\x08\x13\x73You got a \x05\x41Piece of Heart\x05\x40!\x01You are already at\x01maximum health.",
     0x9002: "\x08You are a \x05\x43FOOL\x05\x40!",
     0x9003: "\x08You found a piece of the \x05\x41Triforce\x05\x40!",
-    0x9097: "\x08You got an \x05\x41Archipelago item\x05\x40!\x01It seems \x05\x41important\x05\x40!",
-    0x9098: "\x08You got an \x05\x43Archipelago item\x05\x40!\x01Doesn't seem like it's needed.",
 }
 
 KEYSANITY_MESSAGES = {
