@@ -1,5 +1,6 @@
 #Much of this is heavily inspired from and/or based on az64's / Deathbasket's MM randomizer
 
+import random
 import os
 from .Utils import compare_version, data_path
 
@@ -174,7 +175,7 @@ def process_sequences(rom, sequences, target_sequences, disabled_source_sequence
     return sequences, target_sequences
 
 
-def shuffle_music(sequences, target_sequences, music_mapping, log, rand):
+def shuffle_music(sequences, target_sequences, music_mapping, log):
     sequence_dict = {}
     sequence_ids = []
 
@@ -190,7 +191,7 @@ def shuffle_music(sequences, target_sequences, music_mapping, log, rand):
     # Shuffle the sequences
     if len(sequences) < len(target_sequences):
         raise Exception(f"Not enough custom music/fanfares ({len(sequences)}) to omit base Ocarina of Time sequences ({len(target_sequences)}).")
-    rand.shuffle(sequence_ids)
+    random.shuffle(sequence_ids)
 
     sequences = []
     for target_sequence in target_sequences:
@@ -327,7 +328,7 @@ def rebuild_sequences(rom, sequences):
             rom.write_byte(base, j.instrument_set)
 
 
-def shuffle_pointers_table(rom, ids, music_mapping, log, rand):
+def shuffle_pointers_table(rom, ids, music_mapping, log):
     # Read in all the Music data
     bgm_data = {}
     bgm_ids = []
@@ -340,7 +341,7 @@ def shuffle_pointers_table(rom, ids, music_mapping, log, rand):
             bgm_ids.append(bgm[0])
 
     # shuffle data
-    rand.shuffle(bgm_ids)
+    random.shuffle(bgm_ids)
 
     # Write Music data back in random ordering
     for bgm in ids:

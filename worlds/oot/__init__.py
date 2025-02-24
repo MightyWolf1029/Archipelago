@@ -30,7 +30,7 @@ from .SettingsList import normalized_name_tricks
 from .OoTR.Rom import Rom
 from .OoTR.Patches import OoTContainer, patch_rom
 from .OoTR.N64Patch import create_patch_file
-from .OoTR.Cosmetics import patch_cosmetics
+from .Cosmetics import patch_cosmetics
 
 from settings import get_settings
 from BaseClasses import MultiWorld, CollectionState, Tutorial, LocationProgressType
