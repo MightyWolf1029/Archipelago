@@ -1,18 +1,17 @@
 class Dungeon(object):
 
-    def __init__(self, world, name, hint, font_color):
-
+    def __init__(self, world, name, hint, font_color, boss_key=None, small_keys=None, dungeon_items=None):
         self.world = world
         self.name = name
-        self.hint_text = hint
+        self.hint = hint
         self.font_color = font_color
         self.regions = []
-        self.boss_key = []
-        self.small_keys = []
-        self.dungeon_items = []
+        self.boss_key = boss_key if boss_key is not None else []
+        self.small_keys = small_keys if small_keys is not None else []
+        self.dungeon_items = dungeon_items if dungeon_items is not None else []
 
-        for region in world.multiworld.regions:
-            if region.player == world.player and region.dungeon == self.name:
+        for region in world.regions:
+            if region.dungeon == self.name:
                 region.dungeon = self
                 self.regions.append(region)                
 
@@ -22,7 +21,7 @@ class Dungeon(object):
         new_small_keys = [item.copy(new_world) for item in self.small_keys]
         new_dungeon_items = [item.copy(new_world) for item in self.dungeon_items]
 
-        new_dungeon = Dungeon(new_world, self.name, self.hint_text, self.font_color, new_boss_key, new_small_keys, new_dungeon_items)
+        new_dungeon = Dungeon(new_world, self.name, self.hint, self.font_color, new_boss_key, new_small_keys, new_dungeon_items)
 
         return new_dungeon
 
@@ -37,12 +36,12 @@ class Dungeon(object):
         return self.dungeon_items + self.keys
 
 
+    def item_name(self, text):
+        return f"{text} ({self.name})"
+
+
     def is_dungeon_item(self, item):
         return item.name in [dungeon_item.name for dungeon_item in self.all_items]
-
-
-    def item_name(self, name):
-        return f"{name} ({self.name})"
 
 
     def __str__(self):

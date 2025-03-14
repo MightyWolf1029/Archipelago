@@ -1,6 +1,6 @@
 import os
 
-from .OoTR.Dungeon import Dungeon
+from .Dungeon import Dungeon
 from .OoTR.Utils import data_path
 
 
@@ -121,7 +121,7 @@ def create_dungeons(ootworld):
         name = dungeon_info['name']
         hint = dungeon_info['hint'] if 'hint' in dungeon_info else name
         font_color = dungeon_info['font_color'] if 'font_color' in dungeon_info else 'White'
-        
+
         if ootworld.logic_rules == 'glitchless' or ootworld.logic_rules == 'no_logic':  # ER + NL
             if not ootworld.dungeon_mq[name]:
                 dungeon_json = os.path.join(data_path('World'), name + '.json')
@@ -133,7 +133,6 @@ def create_dungeons(ootworld):
             else:
                 dungeon_json = os.path.join(data_path('Glitched World'), name + ' MQ.json')
 
-        
         ootworld.load_regions_from_json(dungeon_json)
 
         # boss_keys = [ootworld.create_item(f'Boss Key ({name})') for i in range(dungeon_info['boss_key'])]
