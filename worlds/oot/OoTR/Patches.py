@@ -23,8 +23,8 @@ from .Messages import read_messages, update_message_by_id, read_shop_items, upda
 from .MQ import patch_files, File, update_dmadata, insert_space, add_relocations
 from .Rom import Rom
 from .SaveContext import SaveContext, Scenes, FlagType
-from .SceneFlags import get_alt_list_bytes, get_collectible_flag_table, get_collectible_flag_table_bytes, \
-        get_collectible_flag_addresses
+from .SceneFlags import get_alt_list_bytes, get_collectible_flag_table, get_collectible_flag_table_bytes
+from ..SceneFlags import get_collectible_flag_addresses # This will eventually be removed
 from .TextBox import character_table, NORMAL_LINE_WIDTH, rom_safe_text
 from .texture_util import ci4_rgba16patch_to_ci8, rgba16_patch
 from .Utils import __version__
