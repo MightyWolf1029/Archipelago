@@ -29,7 +29,7 @@ from .DungeonList import dungeon_table, create_dungeons
 from .SettingsList import normalized_name_tricks
 from .OoTR.Rom import Rom
 from .OoTR.Patches import OoTContainer, patch_rom
-from .OoTR.N64Patch import create_patch_file
+from .N64Patch import get_patch_data
 from .Cosmetics import patch_cosmetics
 
 from settings import get_settings
@@ -1099,7 +1099,7 @@ class OOTWorld(World):
             finally:
                 self.collectible_flags_available.set()
             rom.update_header()
-            patch_data = create_patch_file(rom, self.random)
+            patch_data = get_patch_data(rom, self.random)
             rom.restore()
 
             apz5 = OoTContainer(patch_data, outfile_name, output_directory,
