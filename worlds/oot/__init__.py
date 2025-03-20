@@ -27,7 +27,7 @@ from .Utils import data_path, read_json
 from .OoTR.LocationList import business_scrubs, set_drop_location_names, dungeon_song_locations
 from .DungeonList import dungeon_table, create_dungeons
 from .SettingsList import normalized_name_tricks
-from .OoTR.Rom import Rom
+from .Rom import Rom
 from .OoTR.Patches import OoTContainer, patch_rom
 from .N64Patch import get_patch_data
 from .Cosmetics import patch_cosmetics

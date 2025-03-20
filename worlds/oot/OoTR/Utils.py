@@ -6,10 +6,35 @@ from functools import lru_cache
 
 __version__ = '7.1.0'
 
+def is_bundled():
+    return getattr(sys, 'frozen', False)
+
+def local_path(path=''):
+    if local_path.cached_path is not None:
+        return os.path.join(local_path.cached_path, path)
+
+    if is_bundled():
+        # we are running in a bundle
+        local_path.cached_path = os.path.dirname(os.path.realpath(sys.executable))
+    else:
+        # we are running in a normal Python environment
+        local_path.cached_path = os.path.dirname(os.path.realpath(__file__))
+
+    return os.path.join(local_path.cached_path, path)
+
+local_path.cached_path = None
+
 
 def data_path(*args):
     return os.path.join(os.path.dirname(__file__), 'data', *args)
 
+def default_output_path(path):
+    if path == '':
+        path = local_path('Output')
+
+    if not os.path.exists(path):
+        os.mkdir(path)
+    return path
 
 @lru_cache
 def read_json(file_path):
