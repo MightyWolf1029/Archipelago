@@ -1,5 +1,6 @@
 # text details: https://wiki.cloudmodding.com/oot/Text_Format
 
+import random
 from .HintList import misc_item_hint_table, misc_location_hint_table
 from .TextBox import line_wrap
 from .Utils import find_last
@@ -886,7 +887,7 @@ def make_player_message(text):
 def update_item_messages(messages, world):
     new_item_messages = {**ITEM_MESSAGES, **KEYSANITY_MESSAGES}
     for id, text in new_item_messages.items():
-        if world.multiworld.players > 1:
+        if world.settings.world_count > 1:
             update_message_by_id(messages, id, make_player_message(text), 0x23)
         else:
             update_message_by_id(messages, id, text, 0x23)
@@ -966,7 +967,7 @@ def repack_messages(rom, messages, permutation=None, always_allow_skip=True, spe
     rom.write_bytes(entry_offset, [0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
 
 # shuffles the messages in the game, making sure to keep various message types in their own group
-def shuffle_messages(messages, rand, except_hints=True, always_allow_skip=True):
+def shuffle_messages(messages, except_hints=True, always_allow_skip=True):
 
     permutation = [i for i, _ in enumerate(messages)]
 
@@ -999,7 +1000,7 @@ def shuffle_messages(messages, rand, except_hints=True, always_allow_skip=True):
 
     def shuffle_group(group):
         group_permutation = [i for i, _ in enumerate(group)]
-        rand.shuffle(group_permutation)
+        random.shuffle(group_permutation)
 
         for index_from, index_to in enumerate(group_permutation):
             permutation[group[index_to].index] = group[index_from].index
@@ -1027,9 +1028,9 @@ def update_warp_song_text(messages, world):
         0x0892: 'Prelude of Light Warp -> Temple of Time',
     }
 
-    if world.logic_rules != "glitched": # Entrances not set on glitched logic so following code will error
+    if world.settings.logic_rules != "glitched": # Entrances not set on glitched logic so following code will error
         for id, entr in msg_list.items():
-            if 'warp_songs' in world.misc_hints or not world.warp_songs:
+            if 'warp_songs' in world.settings.misc_hints or not world.settings.warp_songs:
                 destination = world.get_entrance(entr).connected_region
                 destination_name = HintArea.at(destination)
                 color = COLOR_MAP[destination_name.color]

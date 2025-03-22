@@ -16,6 +16,7 @@ from .Hints import writeGossipStoneHints, buildAltarHints, \
         buildGanonText, getSimpleHintNoPrefix, HintArea, getItemGenericName, \
         buildMiscItemHints, buildMiscLocationHints
 from .Utils import data_path
+from ..Messages import update_warp_song_text, shuffle_messages, update_item_messages # Temporary
 from .Messages import read_messages, update_message_by_id, read_shop_items, update_warp_song_text, \
         write_shop_items, remove_unused_messages, make_player_message, \
         add_item_messages, repack_messages, shuffle_messages, \
