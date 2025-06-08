@@ -8,8 +8,6 @@ from .JSONDump import dump_obj, CollapseList, CollapseDict, AlignedDict, SortedD
 import json
 from .N64Patch import apply_patch_file
 
-logger = logging.getLogger('')
-
 
 def patch_targeting(rom, settings, log, symbols):
     # Set default targeting option to Hold
@@ -37,15 +35,17 @@ def patch_dpad_info(rom, settings, log, symbols):
     log.dpad_dungeon_menu = settings.dpad_dungeon_menu
 
 
-def patch_music(rom, ootworld, symbols):
+def patch_music(rom, settings, log, symbols):
     # patch music
-    if ootworld.background_music != 'normal' or ootworld.fanfares != 'normal':
+    if settings.background_music != 'normal' or settings.fanfares != 'normal' or log.src_dict.get('bgm', {}):
         music.restore_music(rom)
-        log, errors = music.randomize_music(rom, ootworld, {})
-        if errors:
-            logger.error(errors)
+        log.bgm, errors = music.randomize_music(rom, settings, log.src_dict.get('bgm', {}))
+        log.errors.extend(errors)
     else:
         music.restore_music(rom)
+    # Remove battle music
+    if settings.disable_battle_music:
+        rom.write_byte(0xBE447F, 0x00)
 
 
 def patch_model_colors(rom, color, model_addresses):
@@ -81,7 +81,7 @@ def patch_tunic_icon(rom, tunic, color):
     rom.write_bytes(icon_locations[tunic], tunic_icon)
 
 
-def patch_tunic_colors(rom, ootworld, symbols):
+def patch_tunic_colors(rom, settings, log, symbols):
     # patch tunic colors
     tunics = [
         ('Kokiri Tunic', 'kokiri_color', 0x00B6DA38),
@@ -91,11 +91,15 @@ def patch_tunic_colors(rom, ootworld, symbols):
     tunic_color_list = get_tunic_colors()
 
     for tunic, tunic_setting, address in tunics:
-        tunic_option = format_cosmetic_option_result(ootworld.__dict__[tunic_setting])
+        tunic_option = settings.__dict__[tunic_setting]
+
+        # Handle Plando
+        if log.src_dict.get('equipment_colors', {}).get(tunic, {}).get('color', ''):
+            tunic_option = log.src_dict['equipment_colors'][tunic]['color']
 
         # handle random
         if tunic_option == 'Random Choice':
-            tunic_option = ootworld.random.choice(tunic_color_list)
+            tunic_option = random.choice(tunic_color_list)
         # handle completely random
         if tunic_option == 'Completely Random':
             color = generate_random_color()
@@ -106,9 +110,9 @@ def patch_tunic_colors(rom, ootworld, symbols):
         else:
             color = hex_to_color(tunic_option)
             tunic_option = 'Custom'
-        # "Weird" weirdshots will crash if the Kokiri Tunic Green value is > 0x99. Brickwall it.
-        if ootworld.logic_rules != 'glitchless' and tunic == 'Kokiri Tunic':
-            color[1] = min(color[1],0x98)
+        # "Weird" weirdshots will crash if the Kokiri Tunic Green value is > 0x99 and possibly 0x98. Brickwall it.
+        if settings.logic_rules != 'glitchless' and tunic == 'Kokiri Tunic':
+            color[1] = min(color[1], 0x97)
         rom.write_bytes(address, color)
 
         # patch the tunic icon
@@ -117,8 +121,13 @@ def patch_tunic_colors(rom, ootworld, symbols):
         else:
             patch_tunic_icon(rom, tunic, None)
 
+        log.equipment_colors[tunic] = CollapseDict({
+            ':option': tunic_option,
+            'color': color_to_hex(color),
+        })
 
-def patch_navi_colors(rom, ootworld, symbols):
+
+def patch_navi_colors(rom, settings, log, symbols):
     # patch navi colors
     navi = [
         # colors for Navi
@@ -141,16 +150,17 @@ def patch_navi_colors(rom, ootworld, symbols):
     rainbow_error = None
 
     for navi_action, navi_setting, navi_addresses, rainbow_inner_symbol, rainbow_outer_symbol in navi:
-        navi_option_inner = format_cosmetic_option_result(ootworld.__dict__[navi_setting+'_inner'])
-        navi_option_outer = format_cosmetic_option_result(ootworld.__dict__[navi_setting+'_outer'])
+        navi_option_inner = settings.__dict__[navi_setting+'_inner']
+        navi_option_outer = settings.__dict__[navi_setting+'_outer']
+        plando_colors = log.src_dict.get('misc_colors', {}).get(navi_action, {}).get('colors', [])
 
         # choose a random choice for the whole group
         if navi_option_inner == 'Random Choice':
-            navi_option_inner = ootworld.random.choice(navi_color_list)
+            navi_option_inner = random.choice(navi_color_list)
         if navi_option_outer == 'Random Choice':
-            navi_option_outer = ootworld.random.choice(navi_color_list)
+            navi_option_outer = random.choice(navi_color_list)
 
-        if navi_option_outer == 'Match Inner':
+        if navi_option_outer == '[Same as Inner]':
             navi_option_outer = navi_option_inner
 
         colors = []
@@ -163,6 +173,10 @@ def patch_navi_colors(rom, ootworld, symbols):
                 ('outer', navi_option_outer, rainbow_outer_symbol),
             ]):
                 color = None
+
+                # Plando
+                if len(plando_colors) > address_index and plando_colors[address_index].get(navi_part, ''):
+                    color = hex_to_color(plando_colors[address_index][navi_part])
 
                 # set rainbow option
                 if rainbow_symbol is not None and option == 'Rainbow':
@@ -198,14 +212,29 @@ def patch_navi_colors(rom, ootworld, symbols):
             color = address_colors['inner'] + [0xFF] + address_colors['outer'] + [0xFF]
             rom.write_bytes(address, color)
 
+        # Get the colors into the log.
+        log.misc_colors[navi_action] = CollapseDict({
+            ':option_inner': option_dict['inner'],
+            ':option_outer': option_dict['outer'],
+            'colors': [],
+        })
+        if option_dict['inner'] != "Rainbow" or option_dict['outer'] != "Rainbow" or rainbow_error:
+            for address_colors in colors:
+                address_colors_str = CollapseDict()
+                log.misc_colors[navi_action]['colors'].append(address_colors_str)
+                for part, color in address_colors.items():
+                    if log.misc_colors[navi_action][f':option_{part}'] != "Rainbow" or rainbow_error:
+                        address_colors_str[part] = color_to_hex(color)
+        else:
+            del log.misc_colors[navi_action]['colors']
 
     if rainbow_error:
-        logger.error(rainbow_error)
+        log.errors.append(rainbow_error)
 
 
-def patch_sword_trails(rom, ootworld, symbols):
+def patch_sword_trails(rom, settings, log, symbols):
     # patch sword trail duration
-    rom.write_byte(0x00BEFF8C, ootworld.sword_trail_duration)
+    rom.write_byte(0x00BEFF8C, settings.sword_trail_duration)
 
     # patch sword trail colors
     sword_trails = [
@@ -218,16 +247,17 @@ def patch_sword_trails(rom, ootworld, symbols):
     rainbow_error = None
 
     for trail_name, trail_setting, trail_addresses, rainbow_inner_symbol, rainbow_outer_symbol in sword_trails:
-        option_inner = format_cosmetic_option_result(ootworld.__dict__[trail_setting+'_inner'])
-        option_outer = format_cosmetic_option_result(ootworld.__dict__[trail_setting+'_outer'])
+        option_inner = settings.__dict__[trail_setting+'_inner']
+        option_outer = settings.__dict__[trail_setting+'_outer']
+        plando_colors = log.src_dict.get('misc_colors', {}).get(trail_name, {}).get('colors', [])
 
         # handle random choice
         if option_inner == 'Random Choice':
-            option_inner = ootworld.random.choice(sword_trail_color_list)
+            option_inner = random.choice(sword_trail_color_list)
         if option_outer == 'Random Choice':
-            option_outer = ootworld.random.choice(sword_trail_color_list)
+            option_outer = random.choice(sword_trail_color_list)
 
-        if option_outer == 'Match Inner':
+        if option_outer == '[Same as Inner]':
             option_outer = option_inner
 
         colors = []
@@ -241,6 +271,10 @@ def patch_sword_trails(rom, ootworld, symbols):
                 ('outer', option_outer, rainbow_outer_symbol, outer_white_transparency, outer_transparency),
             ]):
                 color = None
+
+                # Plando
+                if len(plando_colors) > address_index and plando_colors[address_index].get(trail_part, ''):
+                    color = hex_to_color(plando_colors[address_index][trail_part])
 
                 # set rainbow option
                 if rainbow_symbol is not None and option == 'Rainbow':
@@ -282,8 +316,24 @@ def patch_sword_trails(rom, ootworld, symbols):
             color = address_colors['outer'] + [transparency_dict['outer']] + address_colors['inner'] + [transparency_dict['inner']]
             rom.write_bytes(address, color)
 
+        # Get the colors into the log.
+        log.misc_colors[trail_name] = CollapseDict({
+            ':option_inner': option_dict['inner'],
+            ':option_outer': option_dict['outer'],
+            'colors': [],
+        })
+        if option_dict['inner'] != "Rainbow" or option_dict['outer'] != "Rainbow" or rainbow_error:
+            for address_colors in colors:
+                address_colors_str = CollapseDict()
+                log.misc_colors[trail_name]['colors'].append(address_colors_str)
+                for part, color in address_colors.items():
+                    if log.misc_colors[trail_name][f':option_{part}'] != "Rainbow" or rainbow_error:
+                        address_colors_str[part] = color_to_hex(color)
+        else:
+            del log.misc_colors[trail_name]['colors']
+
     if rainbow_error:
-        logger.error(rainbow_error)
+        log.errors.append(rainbow_error)
 
 
 def patch_bombchu_trails(rom, settings, log, symbols):
@@ -308,19 +358,20 @@ def patch_boomerang_trails(rom, settings, log, symbols):
     patch_trails(rom, settings, log, boomerang_trails)
 
 
-def patch_trails(rom, ootworld, trails):
+def patch_trails(rom, settings, log, trails):
     for trail_name, trail_setting, trail_color_list, trail_color_dict, trail_symbols in trails:
         color_inner_symbol, color_outer_symbol, rainbow_inner_symbol, rainbow_outer_symbol = trail_symbols
-        option_inner = format_cosmetic_option_result(ootworld.__dict__[trail_setting+'_inner'])
-        option_outer = format_cosmetic_option_result(ootworld.__dict__[trail_setting+'_outer'])
+        option_inner = settings.__dict__[trail_setting+'_inner']
+        option_outer = settings.__dict__[trail_setting+'_outer']
+        plando_colors = log.src_dict.get('misc_colors', {}).get(trail_name, {}).get('colors', [])
 
         # handle random choice
         if option_inner == 'Random Choice':
-            option_inner = ootworld.random.choice(trail_color_list)
+            option_inner = random.choice(trail_color_list)
         if option_outer == 'Random Choice':
-            option_outer = ootworld.random.choice(trail_color_list)
+            option_outer = random.choice(trail_color_list)
 
-        if option_outer == 'Match Inner':
+        if option_outer == '[Same as Inner]':
             option_outer = option_inner
 
         option_dict = {}
@@ -331,6 +382,10 @@ def patch_trails(rom, ootworld, trails):
             ('outer', option_outer, rainbow_outer_symbol, color_outer_symbol),
         ]):
             color = None
+
+            # Plando
+            if len(plando_colors) > 0 and plando_colors[0].get(trail_part, ''):
+                color = hex_to_color(plando_colors[0][trail_part])
 
             # set rainbow option
             if option == 'Rainbow':
@@ -366,9 +421,23 @@ def patch_trails(rom, ootworld, trails):
             # write color
             rom.write_bytes(color_symbol, color)
 
+        # Get the colors into the log.
+        log.misc_colors[trail_name] = CollapseDict({
+            ':option_inner': option_dict['inner'],
+            ':option_outer': option_dict['outer'],
+            'colors': [],
+        })
+        if option_dict['inner'] != "Rainbow" or option_dict['outer'] != "Rainbow":
+            colors_str = CollapseDict()
+            log.misc_colors[trail_name]['colors'].append(colors_str)
+            for part, color in colors.items():
+                if log.misc_colors[trail_name][f':option_{part}'] != "Rainbow":
+                    colors_str[part] = color_to_hex(color)
+        else:
+            del log.misc_colors[trail_name]['colors']
 
 
-def patch_gauntlet_colors(rom, ootworld, symbols):
+def patch_gauntlet_colors(rom, settings, log, symbols):
     # patch gauntlet colors
     gauntlets = [
         ('Silver Gauntlets', 'silver_gauntlets_color', 0x00B6DA44,
@@ -379,11 +448,15 @@ def patch_gauntlet_colors(rom, ootworld, symbols):
     gauntlet_color_list = get_gauntlet_colors()
 
     for gauntlet, gauntlet_setting, address, model_addresses in gauntlets:
-        gauntlet_option = format_cosmetic_option_result(ootworld.__dict__[gauntlet_setting])
+        gauntlet_option = settings.__dict__[gauntlet_setting]
+
+        # Handle Plando
+        if log.src_dict.get('equipment_colors', {}).get(gauntlet, {}).get('color', ''):
+            gauntlet_option = log.src_dict['equipment_colors'][gauntlet]['color']
 
         # handle random
         if gauntlet_option == 'Random Choice':
-            gauntlet_option = ootworld.random.choice(gauntlet_color_list)
+            gauntlet_option = random.choice(gauntlet_color_list)
         # handle completely random
         if gauntlet_option == 'Completely Random':
             color = generate_random_color()
@@ -395,12 +468,16 @@ def patch_gauntlet_colors(rom, ootworld, symbols):
             color = hex_to_color(gauntlet_option)
             gauntlet_option = 'Custom'
         rom.write_bytes(address, color)
-        if ootworld.correct_model_colors:
+        if settings.correct_model_colors:
             patch_model_colors(rom, color, model_addresses)
         else:
             patch_model_colors(rom, None, model_addresses)
+        log.equipment_colors[gauntlet] = CollapseDict({
+            ':option': gauntlet_option,
+            'color': color_to_hex(color),
+        })
 
-def patch_shield_frame_colors(rom, ootworld, symbols):
+def patch_shield_frame_colors(rom, settings, log, symbols):
     # patch shield frame colors
     shield_frames = [
         ('Mirror Shield Frame', 'mirror_shield_frame_color',
@@ -410,14 +487,18 @@ def patch_shield_frame_colors(rom, ootworld, symbols):
     shield_frame_color_list = get_shield_frame_colors()
 
     for shield_frame, shield_frame_setting, addresses, model_addresses in shield_frames:
-        shield_frame_option = format_cosmetic_option_result(ootworld.__dict__[shield_frame_setting])
+        shield_frame_option = settings.__dict__[shield_frame_setting]
+
+        # Handle Plando
+        if log.src_dict.get('equipment_colors', {}).get(shield_frame, {}).get('color', ''):
+            shield_frame_option = log.src_dict['equipment_colors'][shield_frame]['color']
 
         # handle random
         if shield_frame_option == 'Random Choice':
-            shield_frame_option = ootworld.random.choice(shield_frame_color_list)
+            shield_frame_option = random.choice(shield_frame_color_list)
         # handle completely random
         if shield_frame_option == 'Completely Random':
-            color = [ootworld.random.getrandbits(8), ootworld.random.getrandbits(8), ootworld.random.getrandbits(8)]
+            color = [random.getrandbits(8), random.getrandbits(8), random.getrandbits(8)]
         # grab the color from the list
         elif shield_frame_option in shield_frame_colors:
             color = list(shield_frame_colors[shield_frame_option])
@@ -427,13 +508,18 @@ def patch_shield_frame_colors(rom, ootworld, symbols):
             shield_frame_option = 'Custom'
         for address in addresses:
             rom.write_bytes(address, color)
-        if ootworld.correct_model_colors and shield_frame_option != 'Red':
+        if settings.correct_model_colors and shield_frame_option != 'Red':
             patch_model_colors(rom, color, model_addresses)
         else:
             patch_model_colors(rom, None, model_addresses)
 
+        log.equipment_colors[shield_frame] = CollapseDict({
+            ':option': shield_frame_option,
+            'color': color_to_hex(color),
+        })
 
-def patch_heart_colors(rom, ootworld, symbols):
+
+def patch_heart_colors(rom, settings, log, symbols):
     # patch heart colors
     hearts = [
         ('Heart Color', 'heart_color', symbols['CFG_HEART_COLOR'], 0xBB0994,
@@ -444,11 +530,15 @@ def patch_heart_colors(rom, ootworld, symbols):
     heart_color_list = get_heart_colors()
 
     for heart, heart_setting, symbol, file_select_address, model_addresses in hearts:
-        heart_option = format_cosmetic_option_result(ootworld.__dict__[heart_setting])
+        heart_option = settings.__dict__[heart_setting]
+
+        # Handle Plando
+        if log.src_dict.get('ui_colors', {}).get(heart, {}).get('color', ''):
+            heart_option = log.src_dict['ui_colors'][heart]['color']
 
         # handle random
         if heart_option == 'Random Choice':
-            heart_option = ootworld.random.choice(heart_color_list)
+            heart_option = random.choice(heart_color_list)
         # handle completely random
         if heart_option == 'Completely Random':
             color = generate_random_color()
@@ -466,14 +556,18 @@ def patch_heart_colors(rom, ootworld, symbols):
         else:
             original_dd_color = rom.original.read_bytes(file_select_address + 6, 6)
             rom.write_bytes(file_select_address + 6, original_dd_color)
-        if ootworld.correct_model_colors and heart_option != 'Red':
+        if settings.correct_model_colors and heart_option != 'Red':
             patch_model_colors(rom, color, model_addresses) # heart model colors
             icon.patch_overworld_icon(rom, color, 0xF43D80) # Overworld Heart Icon
         else:
             patch_model_colors(rom, None, model_addresses)
             icon.patch_overworld_icon(rom, None, 0xF43D80)
+        log.ui_colors[heart] = CollapseDict({
+            ':option': heart_option,
+            'color': color_to_hex(color),
+        })
 
-def patch_magic_colors(rom, ootworld, symbols):
+def patch_magic_colors(rom, settings, log, symbols):
     # patch magic colors
     magic = [
         ('Magic Meter Color', 'magic_color', symbols["CFG_MAGIC_COLOR"],
@@ -482,10 +576,14 @@ def patch_magic_colors(rom, ootworld, symbols):
     magic_color_list = get_magic_colors()
 
     for magic_color, magic_setting, symbol, model_addresses in magic:
-        magic_option = format_cosmetic_option_result(ootworld.__dict__[magic_setting])
+        magic_option = settings.__dict__[magic_setting]
+
+        # Handle Plando
+        if log.src_dict.get('ui_colors', {}).get(magic_color, {}).get('color', ''):
+            magic_option = log.src_dict['ui_colors'][magic_color]['color']
 
         if magic_option == 'Random Choice':
-           magic_option = ootworld.random.choice(magic_color_list)
+           magic_option = random.choice(magic_color_list)
 
         if magic_option == 'Completely Random':
             color = generate_random_color()
@@ -495,7 +593,7 @@ def patch_magic_colors(rom, ootworld, symbols):
             color = hex_to_color(magic_option)
             magic_option = 'Custom'
         rom.write_int16s(symbol, color)
-        if magic_option != 'Green' and ootworld.correct_model_colors:
+        if magic_option != 'Green' and settings.correct_model_colors:
             patch_model_colors(rom, color, model_addresses)
             icon.patch_overworld_icon(rom, color, 0xF45650, data_path('icons/magicSmallExtras.raw')) # Overworld Small Pot
             icon.patch_overworld_icon(rom, color, 0xF47650, data_path('icons/magicLargeExtras.raw')) # Overworld Big Pot
@@ -503,8 +601,12 @@ def patch_magic_colors(rom, ootworld, symbols):
             patch_model_colors(rom, None, model_addresses)
             icon.patch_overworld_icon(rom, None, 0xF45650)
             icon.patch_overworld_icon(rom, None, 0xF47650)
+        log.ui_colors[magic_color] = CollapseDict({
+            ':option': magic_option,
+            'color': color_to_hex(color),
+        })
 
-def patch_button_colors(rom, ootworld, symbols):
+def patch_button_colors(rom, settings, log, symbols):
     buttons = [
         ('A Button Color', 'a_button_color', a_button_colors,
             [('A Button Color', symbols['CFG_A_BUTTON_COLOR'],
@@ -543,13 +645,18 @@ def patch_button_colors(rom, ootworld, symbols):
     ]
 
     for button, button_setting, button_colors, patches in buttons:
-        button_option = format_cosmetic_option_result(ootworld.__dict__[button_setting])
+        button_option = settings.__dict__[button_setting]
         color_set = None
         colors = {}
+        log_dict = CollapseDict({':option': button_option, 'colors': {}})
+        log.ui_colors[button] = log_dict
+
+        # Setup Plando
+        plando_colors = log.src_dict.get('ui_colors', {}).get(button, {}).get('colors', {})
 
         # handle random
         if button_option == 'Random Choice':
-            button_option = ootworld.random.choice(list(button_colors.keys()))
+            button_option = random.choice(list(button_colors.keys()))
         # handle completely random
         if button_option == 'Completely Random':
             fixed_font_color = [10, 10, 10]
@@ -565,10 +672,13 @@ def patch_button_colors(rom, ootworld, symbols):
         else:
             color = hex_to_color(button_option)
             button_option = 'Custom'
+        log_dict[':option'] = button_option
 
         # apply all button color patches
         for i, (patch, symbol, byte_addresses) in enumerate(patches):
-            if color_set is not None and len(color_set) > i and color_set[i]:
+            if plando_colors.get(patch, ''):
+                colors[patch] = hex_to_color(plando_colors[patch])
+            elif color_set is not None and len(color_set) > i and color_set[i]:
                 colors[patch] = color_set[i]
             else:
                 colors[patch] = color
@@ -582,8 +692,10 @@ def patch_button_colors(rom, ootworld, symbols):
                     rom.write_byte(g_addr, colors[patch][1])
                     rom.write_byte(b_addr, colors[patch][2])
 
+            log_dict['colors'][patch] = color_to_hex(colors[patch])
 
-def patch_sfx(rom, ootworld, symbols):
+
+def patch_sfx(rom, settings, log, symbols):
     # Configurable Sound Effects
     sfx_config = [
           ('sfx_navi_overworld', sfx.SoundHooks.NAVI_OVERWORLD),
@@ -600,7 +712,15 @@ def patch_sfx(rom, ootworld, symbols):
     sounds_label_keyword = {sound.value.label: sound.value.keyword for sound in sfx.Sounds}
 
     for setting, hook in sfx_config:
-        selection = ootworld.__dict__[setting].replace('_', '-')
+        selection = settings.__dict__[setting]
+
+        # Handle Plando
+        if log.src_dict.get('sfx', {}).get(hook.value.name, ''):
+            selection_label = log.src_dict['sfx'][hook.value.name]
+            if selection_label == 'Default':
+                selection = 'default'
+            elif selection_label in sounds_label_keyword:
+                selection = sounds_label_keyword[selection_label]
 
         if selection == 'default':
             for loc in hook.value.locations:
@@ -608,18 +728,21 @@ def patch_sfx(rom, ootworld, symbols):
                 rom.write_int16(loc, sound_id)
         else:
             if selection == 'random-choice':
-                selection = ootworld.random.choice(sfx.get_hook_pool(hook)).value.keyword
+                selection = random.choice(sfx.get_hook_pool(hook)).value.keyword
             elif selection == 'random-ear-safe':
-                selection = ootworld.random.choice(sfx.get_hook_pool(hook, "TRUE")).value.keyword
+                selection = random.choice(sfx.get_hook_pool(hook, "TRUE")).value.keyword
             elif selection == 'completely-random':
-                selection = ootworld.random.choice(sfx.standard).value.keyword
+                selection = random.choice(sfx.standard).value.keyword
             sound_id  = sound_dict[selection]
             for loc in hook.value.locations:
                 rom.write_int16(loc, sound_id)
+        if selection == 'default':
+            log.sfx[hook.value.name] = 'Default'
+        else:
+            log.sfx[hook.value.name] = sounds_keyword_label[selection]
 
 
-
-def patch_instrument(rom, ootworld, symbols):
+def patch_instrument(rom, settings, log, symbols):
     # Player Instrument
     instruments = {
            #'none':            0x00,
@@ -631,13 +754,18 @@ def patch_instrument(rom, ootworld, symbols):
             'flute':           0x06,
            #'another_ocarina': 0x07,
     }
+    ocarina_options = [setting.choices for setting in setting_infos if setting.name == 'sfx_ocarina'][0]
+    ocarina_options_inv = {v: k for k, v in ocarina_options.items()}
 
-    choice = ootworld.sfx_ocarina
+    choice = settings.sfx_ocarina
+    if log.src_dict.get('sfx', {}).get('Ocarina', '') and log.src_dict['sfx']['Ocarina'] in ocarina_options_inv:
+        choice = ocarina_options_inv[log.src_dict['sfx']['Ocarina']]
     if choice == 'random-choice':
-        choice = ootworld.random.choice(list(instruments.keys()))
+        choice = random.choice(list(instruments.keys()))
 
     rom.write_byte(0x00B53C7B, instruments[choice])
     rom.write_byte(0x00B4BF6F, instruments[choice]) # For Lost Woods Skull Kids' minigame in Lost Woods
+    log.sfx['Ocarina'] = ocarina_options[choice]
 
 def patch_voices(rom, settings, log, symbols):
     # Link's Voice Replacement Files
@@ -801,10 +929,16 @@ patch_sets[0x1F073FD9] = {
 }
 
 
-def patch_cosmetics(ootworld, rom):
-    # Use the world's slot seed for cosmetics
+def patch_cosmetics(settings, rom):
+    # re-seed for aesthetic effects. They shouldn't be affected by the generation seed
+    random.seed()
+    settings.resolve_random_settings(cosmetic=True)
+
+    # Initialize log and load cosmetic plando.
+    log = CosmeticsLog(settings)
 
     # try to detect the cosmetic patch data format
+    cosmetic_version = None
     versioned_patch_set = None
     cosmetic_context = rom.read_int32(rom.sym('RANDO_CONTEXT') + 4)
     if cosmetic_context >= 0x80000000 and cosmetic_context <= 0x80F7FFFC:
@@ -831,18 +965,20 @@ def patch_cosmetics(ootworld, rom):
 
         # warn if patching a legacy format
         if cosmetic_version != rom.read_int32(rom.sym('COSMETIC_FORMAT_VERSION')):
-            logger.error("ROM uses old cosmetic patch format.")
+            log.errors.append("ROM uses old cosmetic patch format.")
 
         # patch cosmetics that use vanilla oot data, and always compatible
         for patch_func in [patch for patch in global_patch_sets if patch not in versioned_patch_set['patches']]:
-            patch_func(rom, ootworld, {})
+            patch_func(rom, settings, log, {})
 
         for patch_func in versioned_patch_set['patches']:
-            patch_func(rom, ootworld, cosmetic_context_symbols)
+            patch_func(rom, settings, log, cosmetic_context_symbols)
     else:
         # patch cosmetics that use vanilla oot data, and always compatible
         for patch_func in global_patch_sets:
-            patch_func(rom, ootworld, {})
+            patch_func(rom, settings, log, {})
 
         # Unknown patch format
-        logger.error("Unable to patch some cosmetics. ROM uses unknown cosmetic patch format.")
+        log.errors.append("Unable to patch some cosmetics. ROM uses unknown cosmetic patch format.")
+
+    return log
