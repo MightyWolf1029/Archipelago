@@ -5,7 +5,7 @@ import logging
 import re
 
 from .ItemList import item_table
-from .Location import OOTLocation
+from ..Location import OOTLocation # This dependency will eventually be removed
 from ..Region import OOTRegion # This dependency will eventually be removed
 from .Region import TimeOfDay
 from BaseClasses import CollectionState as State

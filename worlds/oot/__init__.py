@@ -10,7 +10,7 @@ from string import printable
 
 logger = logging.getLogger("Ocarina of Time")
 
-from .OoTR.Location import OOTLocation, LocationFactory, location_name_to_id, build_location_name_groups
+from .Location import OOTLocation, LocationFactory, location_name_to_id, build_location_name_groups
 from .Entrance import OOTEntrance
 from .OoTR.EntranceShuffle import shuffle_random_entrances, entrance_shuffle_table, EntranceShuffleError
 from .OoTR.HintList import getRequiredHints
