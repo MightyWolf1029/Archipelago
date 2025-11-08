@@ -2,7 +2,9 @@ from .OoTR.Music import *
 from .OoTR import Music as OoTRMusic
 
 def shuffle_music(sequences, target_sequences, music_mapping, log, rand):
-    """Modified to accept an additional parameter `rand`"""
+    """
+    Modified to accept an additional parameter `rand`
+    """
 
     sequence_dict = {}
     sequence_ids = []
@@ -40,7 +42,9 @@ def shuffle_music(sequences, target_sequences, music_mapping, log, rand):
 OoTRMusic.shuffle_music = shuffle_music
 
 def shuffle_pointers_table(rom, ids, music_mapping, log, rand):
-    """Modified to accept an additional parameter `rand`"""
+    """
+    Modified to accept an additional parameter `rand`
+    """
     # Read in all the Music data
     bgm_data = {}
     bgm_ids = []
@@ -78,7 +82,9 @@ def shuffle_pointers_table(rom, ids, music_mapping, log, rand):
 OoTRMusic.shuffle_pointers_table = shuffle_pointers_table
 
 def randomize_music(rom, ootworld, music_mapping):
-    """Modified to accept ootworld instead of settings, remove custom audio"""
+    """
+    Modified to accept ootworld instead of settings, remove custom audio
+    """
     log = {}
     errors = []
     sequences = []
