@@ -3,10 +3,10 @@ import logging
 import typing
 
 from .Region import TimeOfDay
-from ..DungeonList import dungeon_table
+from ..DungeonList import dungeon_table # This dependency will eventually be removed
 from .Hints import HintArea
 from .Item import oot_is_item_of_type
-from .LocationList import dungeon_song_locations
+from ..LocationList import dungeon_song_locations # This dependency will eventually be removed
 
 from BaseClasses import CollectionState, MultiWorld
 from worlds.generic.Rules import set_rule, add_rule, add_item_rule, forbid_item

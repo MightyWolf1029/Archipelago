@@ -199,7 +199,7 @@ location_table = OrderedDict([
     ("Market Shooting Gallery Reward",                               ("NPC",          0x42,  0x60, None,                            'Slingshot',                             ("the Market", "Market", "Minigames"))),
     ("Market Bombchu Bowling First Prize",                           ("NPC",          0x4B,  0x34, None,                            'Bomb Bag',                              ("the Market", "Market", "Minigames"))),
     ("Market Bombchu Bowling Second Prize",                          ("NPC",          0x4B,  0x3E, None,                            'Piece of Heart',                        ("the Market", "Market", "Minigames"))),
-    ("Market Bombchu Bowling Bombchus",                              ("Event",        0x4B,  None, None,                            'Bombchu Drop',                          ("the Market", "Market", "Minigames"))),
+    ("Market Bombchu Bowling Bombchus",                              ("NPC",          0x4B,  None, None,                            'Bombchu Drop',                          ("the Market", "Market", "Minigames"))),
     ("Market Lost Dog",                                              ("NPC",          0x35,  0x3E, None,                            'Piece of Heart',                        ("the Market", "Market"))),
     ("Market Treasure Chest Game Reward",                            ("Chest",        0x10,  0x0A, None,                            'Piece of Heart (Treasure Chest Game)',  ("the Market", "Market", "Minigames"))),
     ("Market 10 Big Poes",                                           ("NPC",          0x4D,  0x0F, None,                            'Bottle',                                ("the Market", "Hyrule Castle"))),
@@ -842,10 +842,10 @@ location_table = OrderedDict([
    #("Dodongos Cavern Last Block Pot 4",                             ("Pot",          0x01,  0x21, None,                            'Rupee (1)',                             ("Dodongo's Cavern", "Vanilla", "Pot"))),
     ("Dodongos Cavern Blade Room Pot 1",                             ("Pot",          0x01,  (9,0,15), None,                        'Recovery Heart',                        ("Dodongo's Cavern", "Vanilla", "Pot"))),
     ("Dodongos Cavern Blade Room Pot 2",                             ("Pot",          0x01,  (9,0,16), None,                        'Recovery Heart',                        ("Dodongo's Cavern", "Vanilla", "Pot"))),
-    ("Dodongos Cavern Single Eye Switch Room Pot 1",                 ("Pot",          0x01,  (10,0,7), None,                        'Recovery Heart',                        ("Dodongo's Cavern", "Vanilla", "Pot"))),
-    ("Dodongos Cavern Single Eye Switch Room Pot 2",                 ("Pot",          0x01,  (10,0,8), None,                        'Rupees (5)',                            ("Dodongo's Cavern", "Vanilla", "Pot"))),
-    ("Dodongos Cavern Double Eye Switch Room Pot 1",                 ("Pot",          0x01,  (12,0,6), None,                        'Recovery Heart',                        ("Dodongo's Cavern", "Vanilla", "Pot"))),
-    ("Dodongos Cavern Double Eye Switch Room Pot 2",                 ("Pot",          0x01,  (12,0,7), None,                        'Rupees (5)',                            ("Dodongo's Cavern", "Vanilla", "Pot"))),
+    ("Dodongos Cavern Single Eye Switch Room Pot 1",                 ("Pot",          0x01,  (12,0,6), None,                        'Recovery Heart',                        ("Dodongo's Cavern", "Vanilla", "Pot"))),
+    ("Dodongos Cavern Single Eye Switch Room Pot 2",                 ("Pot",          0x01,  (12,0,7), None,                        'Rupees (5)',                            ("Dodongo's Cavern", "Vanilla", "Pot"))),
+    ("Dodongos Cavern Double Eye Switch Room Pot 1",                 ("Pot",          0x01,  (10,0,7), None,                        'Recovery Heart',                        ("Dodongo's Cavern", "Vanilla", "Pot"))),
+    ("Dodongos Cavern Double Eye Switch Room Pot 2",                 ("Pot",          0x01,  (10,0,8), None,                        'Rupees (5)',                            ("Dodongo's Cavern", "Vanilla", "Pot"))),
 
     # Dodongo's Cavern MQ
     ("Dodongos Cavern MQ Map Chest",                                 ("Chest",        0x01,  0x00, None,                            'Map (Dodongos Cavern)',                 ("Dodongo's Cavern", "Master Quest"))),
@@ -2073,31 +2073,9 @@ def location_is_viewable(loc_name, correct_chest_appearances, fast_chests):
         or loc_name in location_groups['CanSee'])
 
 
-# relevant for both dungeon item fill and song fill
-dungeon_song_locations = [
-    "Deku Tree Queen Gohma Heart",
-    "Dodongos Cavern King Dodongo Heart",
-    "Jabu Jabus Belly Barinade Heart",
-    "Forest Temple Phantom Ganon Heart",
-    "Fire Temple Volvagia Heart",
-    "Water Temple Morpha Heart",
-    "Shadow Temple Bongo Bongo Heart",
-    "Spirit Temple Twinrova Heart",
-    "Song from Impa",
-    "Sheik in Ice Cavern",
-    # only one exists
-    "Bottom of the Well Lens of Truth Chest", "Bottom of the Well MQ Lens of Truth Chest",
-    # only one exists
-    "Gerudo Training Ground Maze Path Final Chest", "Gerudo Training Ground MQ Ice Arrows Chest",
-]
-
-
 # Function to run exactly once after after placing items in drop locations for each world
 # Sets all Drop locations to a unique name in order to avoid name issues and to identify locations in the spoiler
-# Also cause them to not be shown in the list of locations, only in playthrough
-def set_drop_location_names(ootworld):
-    for region in ootworld.regions:
-        for location in region.locations:
-            if location.type == 'Drop': 
-                location.name = location.parent_region.name + " " + location.name
-                location.show_in_spoiler = False
+def set_drop_location_names(world):
+    for location in world.get_locations():
+        if location.type == 'Drop':
+            location.name = location.parent_region.name + " " + location.name

@@ -24,7 +24,8 @@ from .OoTR.Rules import set_rules, set_shop_rules, set_entrances_based_rules
 from .OoTR.RuleParser import Rule_AST_Transformer
 from .Options import OoTOptions, oot_option_groups
 from .Utils import data_path, read_json
-from .OoTR.LocationList import business_scrubs, set_drop_location_names, dungeon_song_locations
+from .LocationList import dungeon_song_locations
+from .OoTR.LocationList import business_scrubs, set_drop_location_names
 from .DungeonList import dungeon_table, create_dungeons
 from .SettingsList import normalized_name_tricks
 from .Rom import Rom
