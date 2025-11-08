@@ -129,7 +129,7 @@ def line_wrap(text, strip_existing_lines=False, strip_existing_boxes=False, repl
 
     # Construct our final string.
     # This is a hideous level of list comprehension. Sorry.
-    return '\x04'.join('\x01'.join(' '.join(''.join(code.get_string() for code in word) for word in line) for line in box) for box in processed_boxes)
+    return '\x04'.join(['\x01'.join([' '.join([''.join([code.get_string() for code in word]) for word in line]) for line in box]) for box in processed_boxes])
 
 
 def calculate_width(words):
@@ -367,10 +367,3 @@ def test_support_long_words():
         print('"Support Long Words" test failed: Got ' + result + ', wanted ' + expected)
     else:
         print('"Support Long Words" test passed!')
-
-
-# AP additions
-
-rom_safe_lambda = lambda c: c if c in character_table else '?'
-def rom_safe_text(text):
-    return ''.join(map(rom_safe_lambda, text))

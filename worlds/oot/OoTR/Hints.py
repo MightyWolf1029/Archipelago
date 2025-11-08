@@ -15,7 +15,8 @@ from .Item import OOTItem
 from .HintList import getHint, getHintGroup, Hint, hintExclusions, \
     misc_item_hint_table, misc_location_hint_table
 from .Messages import COLOR_MAP, update_message_by_id
-from .TextBox import line_wrap, character_table, rom_safe_text
+from .TextBox import line_wrap, character_table
+from ..TextBox import rom_safe_text # This dependency will eventually be removed
 from .Utils import data_path, read_json
 
 
