@@ -20,7 +20,7 @@ from .OoTR.ItemList import item_table
 from .OoTR.ItemPool import generate_itempool, get_junk_item, get_junk_pool
 from .Region import OOTRegion
 from .OoTR.Region import TimeOfDay
-from .OoTR.Rules import set_rules, set_shop_rules, set_entrances_based_rules
+from .Rules import set_rules, set_shop_rules, set_entrances_based_rules
 from .OoTR.RuleParser import Rule_AST_Transformer
 from .Options import OoTOptions, oot_option_groups
 from .Utils import data_path, read_json
