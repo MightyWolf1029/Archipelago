@@ -58,3 +58,13 @@ class OOTItem(Item):
     @property
     def dungeonitem(self) -> bool:
         return self.type in ['SmallKey', 'HideoutSmallKey', 'BossKey', 'GanonBossKey', 'Map', 'Compass']
+# Temporarily added for RuleParser. Will eventually be removed
+def MakeEventItem(name, location, item=None):
+    if item is None:
+        item = ItemFactory(name, location.world, event=True)
+    location.world.push_item(location, item)
+    location.locked = True
+    if name not in item_table:
+        location.internal = True
+    location.world.event_items.add(name)
+    return item

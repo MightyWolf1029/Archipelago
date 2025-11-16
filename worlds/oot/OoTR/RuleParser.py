@@ -4,14 +4,12 @@ from inspect import signature, _ParameterKind
 import logging
 import re
 
+from .Item import MakeEventItem
 from .ItemList import item_table
-from ..Location import OOTLocation # This dependency will eventually be removed
-from ..Region import OOTRegion # This dependency will eventually be removed
+from .Location import Location
 from .Region import TimeOfDay
-from BaseClasses import CollectionState as State
+#from State import State
 from .Utils import data_path, read_json
-
-from worlds.generic.Rules import set_rule
 
 
 escaped_items = {}
@@ -24,9 +22,9 @@ event_name = re.compile(r'\w+')
 # or at a certain spot (can be omitted in many cases)
 # or at a specific time of day (often unused)
 kwarg_defaults = {
-    # 'age': None,
-    # 'spot': None,
-    # 'tod': TimeOfDay.NONE,
+    'age': None,
+    'spot': None,
+    'tod': TimeOfDay.NONE,
 }
 
 allowed_globals = {'TimeOfDay': TimeOfDay}
@@ -53,9 +51,8 @@ def isliteral(expr):
 
 class Rule_AST_Transformer(ast.NodeTransformer):
 
-    def __init__(self, world, player):
+    def __init__(self, world):
         self.world = world
-        self.player = player
         self.events = set()
         # map Region -> rule ast string -> item name
         self.replaced_rules = defaultdict(dict)
@@ -66,8 +63,6 @@ class Rule_AST_Transformer(ast.NodeTransformer):
             load_aliases()
         # final rule cache
         self.rule_cache = {}
-        self.kwarg_defaults = kwarg_defaults.copy()  # otherwise this gets contaminated between players
-        self.kwarg_defaults['player'] = self.player
 
 
     def visit_Name(self, node):
@@ -85,14 +80,14 @@ class Rule_AST_Transformer(ast.NodeTransformer):
                     value=ast.Name(id='state', ctx=ast.Load()),
                     attr='has',
                     ctx=ast.Load()),
-                args=[ast.Str(escaped_items[node.id]), ast.Constant(self.player)],
+                args=[ast.Str(escaped_items[node.id])],
                 keywords=[])
         elif node.id in self.world.__dict__:
             # Settings are constant
             return ast.parse('%r' % self.world.__dict__[node.id], mode='eval').body
         elif node.id in State.__dict__:
             return self.make_call(node, node.id, [], [])
-        elif node.id in self.kwarg_defaults or node.id in allowed_globals:
+        elif node.id in kwarg_defaults or node.id in allowed_globals:
             return node
         elif event_name.match(node.id):
             self.events.add(node.id.replace('_', ' '))
@@ -101,7 +96,7 @@ class Rule_AST_Transformer(ast.NodeTransformer):
                     value=ast.Name(id='state', ctx=ast.Load()),
                     attr='has',
                     ctx=ast.Load()),
-                args=[ast.Str(node.id.replace('_', ' ')), ast.Constant(self.player)],
+                args=[ast.Str(node.id.replace('_', ' '))],
                 keywords=[])
         else:
             raise Exception('Parse Error: invalid node name %s' % node.id, self.current_spot.name, ast.dump(node, False))
@@ -112,7 +107,7 @@ class Rule_AST_Transformer(ast.NodeTransformer):
                 value=ast.Name(id='state', ctx=ast.Load()),
                 attr='has',
                 ctx=ast.Load()),
-            args=[ast.Str(node.s), ast.Constant(self.player)],
+            args=[ast.Str(node.s)],
             keywords=[])
 
     # python 3.8 compatibility: ast walking now uses visit_Constant for Constant subclasses
@@ -151,7 +146,7 @@ class Rule_AST_Transformer(ast.NodeTransformer):
                 value=ast.Name(id='state', ctx=ast.Load()),
                 attr='has',
                 ctx=ast.Load()),
-            args=[ast.Str(iname), ast.Constant(self.player), count],
+            args=[ast.Str(iname), count],
             keywords=[])
 
 
@@ -184,14 +179,13 @@ class Rule_AST_Transformer(ast.NodeTransformer):
         for child in node.args:
             if isinstance(child, ast.Name):
                 if child.id in self.world.__dict__:
-                    # child = ast.Attribute(
-                    #     value=ast.Attribute(
-                    #         value=ast.Name(id='state', ctx=ast.Load()),
-                    #         attr='world',
-                    #         ctx=ast.Load()),
-                    #     attr=child.id,
-                    #     ctx=ast.Load())
-                    child = ast.Constant(getattr(self.world, child.id))
+                    child = ast.Attribute(
+                        value=ast.Attribute(
+                            value=ast.Name(id='state', ctx=ast.Load()),
+                            attr='world',
+                            ctx=ast.Load()),
+                        attr=child.id,
+                        ctx=ast.Load())
                 elif child.id in rule_aliases:
                     child = self.visit(child)
                 elif child.id in escaped_items:
@@ -210,19 +204,9 @@ class Rule_AST_Transformer(ast.NodeTransformer):
             s = node.slice if isinstance(node.slice, ast.Name) else node.slice.value
             return ast.Subscript(
                 value=ast.Attribute(
-                    # value=ast.Attribute(
-                    #     value=ast.Name(id='state', ctx=ast.Load()),
-                    #     attr='world',
-                    #     ctx=ast.Load()),
-                    value=ast.Subscript(
-                        value=ast.Attribute(
-                            value=ast.Attribute(
-                                value=ast.Name(id='state', ctx=ast.Load()),
-                                attr='multiworld',
-                                ctx=ast.Load()),
-                            attr='worlds',
-                            ctx=ast.Load()),
-                        slice=ast.Index(value=ast.Constant(self.player)),
+                    value=ast.Attribute(
+                        value=ast.Name(id='state', ctx=ast.Load()),
+                        attr='world',
                         ctx=ast.Load()),
                     attr=node.value.id,
                     ctx=ast.Load()),
@@ -285,7 +269,7 @@ class Rule_AST_Transformer(ast.NodeTransformer):
     def visit_BoolOp(self, node):
         # Everything else must be visited, then can be removed/reduced to.
         early_return = isinstance(node.op, ast.Or)
-        groupable = 'has_any' if early_return else 'has_all'
+        groupable = 'has_any_of' if early_return else 'has_all_of'
         items = set()
         new_values = []
         # if any elt is True(And)/False(Or), we can omit it
@@ -324,9 +308,9 @@ class Rule_AST_Transformer(ast.NodeTransformer):
             node.values = [ast.Call(
                 func=ast.Attribute(
                     value=ast.Name(id='state', ctx=ast.Load()),
-                    attr='has_any' if early_return else 'has_all',
+                    attr='has_any_of' if early_return else 'has_all_of',
                     ctx=ast.Load()),
-                args=[ast.Tuple(elts=[ast.Str(i) for i in items], ctx=ast.Load()), ast.Constant(self.player)],
+                args=[ast.Tuple(elts=[ast.Str(i) for i in items], ctx=ast.Load())],
                 keywords=[])] + new_values
         else:
             node.values = new_values
@@ -341,9 +325,6 @@ class Rule_AST_Transformer(ast.NodeTransformer):
     def make_call(self, node, name, args, keywords):
         if not hasattr(State, name):
             raise Exception('Parse Error: No such function State.%s' % name, self.current_spot.name, ast.dump(node, False))
-
-        for (k, v) in self.kwarg_defaults.items():
-            keywords.append(ast.keyword(arg=f'{k}', value=ast.Constant(v)))
 
         return ast.Call(
             func=ast.Attribute(
@@ -379,9 +360,9 @@ class Rule_AST_Transformer(ast.NodeTransformer):
     # Requires the target regions have been defined in the world.
     def create_delayed_rules(self):
         for region_name, node, subrule_name in self.delayed_rules:
-            region = self.world.multiworld.get_region(region_name, self.player)
-            event = OOTLocation(self.player, subrule_name, type='Event', parent=region, internal=True)
-            event.show_in_spoiler = False
+            region = self.world.get_region(region_name)
+            event = Location(subrule_name, type='Event', parent=region, internal=True)
+            event.world = self.world
 
             self.current_spot = event
             # This could, in theory, create further subrules.
@@ -393,10 +374,10 @@ class Rule_AST_Transformer(ast.NodeTransformer):
             else:
                 if access_rule is self.rule_cache.get('NameConstant(True)'):
                     event.always = True
-                set_rule(event, access_rule)
+                event.set_rule(access_rule)
                 region.locations.append(event)
 
-                self.world.make_event_item(subrule_name, event)
+                MakeEventItem(subrule_name, event)
         # Safeguard in case this is called multiple times per world
         self.delayed_rules.clear()
 
@@ -405,8 +386,8 @@ class Rule_AST_Transformer(ast.NodeTransformer):
         rule_str = ast.dump(body, False)
         if rule_str not in self.rule_cache:
             # requires consistent iteration on dicts
-            kwargs = [ast.arg(arg=k) for k in self.kwarg_defaults.keys()]
-            kwd = list(map(ast.Constant, self.kwarg_defaults.values()))
+            kwargs = [ast.arg(arg=k) for k in kwarg_defaults.keys()]
+            kwd = list(map(ast.Constant, kwarg_defaults.values()))
             try:
                 self.rule_cache[rule_str] = eval(compile(
                     ast.fix_missing_locations(
@@ -452,16 +433,14 @@ class Rule_AST_Transformer(ast.NodeTransformer):
         if self.world.ensure_tod_access:
             # tod has DAY or (tod == NONE and (ss or find a path from a provider))
             # parsing is better than constructing this expression by hand
-            r = self.current_spot if type(self.current_spot) == OOTRegion else self.current_spot.parent_region
-            return ast.parse(f"(state.has('Ocarina', player) and state.has('Suns Song', player)) or state._oot_reach_at_time('{r.name}', TimeOfDay.DAY, [], player)", mode='eval').body
+            return ast.parse("(tod & TimeOfDay.DAY) if tod else (state.has_all_of(('Ocarina', 'Suns Song')) or state.search.can_reach(spot.parent_region, age=age, tod=TimeOfDay.DAY))", mode='eval').body
         return ast.NameConstant(True)
 
     def at_dampe_time(self, node):
         if self.world.ensure_tod_access:
             # tod has DAMPE or (tod == NONE and (find a path from a provider))
             # parsing is better than constructing this expression by hand
-            r = self.current_spot if type(self.current_spot) == OOTRegion else self.current_spot.parent_region
-            return ast.parse(f"state._oot_reach_at_time('{r.name}', TimeOfDay.DAMPE, [], player)", mode='eval').body
+            return ast.parse("(tod & TimeOfDay.DAMPE) if tod else state.search.can_reach(spot.parent_region, age=age, tod=TimeOfDay.DAMPE)", mode='eval').body
         return ast.NameConstant(True)
 
     def at_night(self, node):
@@ -471,8 +450,7 @@ class Rule_AST_Transformer(ast.NodeTransformer):
         if self.world.ensure_tod_access:
             # tod has DAMPE or (tod == NONE and (ss or find a path from a provider))
             # parsing is better than constructing this expression by hand
-            r = self.current_spot if type(self.current_spot) == OOTRegion else self.current_spot.parent_region
-            return ast.parse(f"(state.has('Ocarina', player) and state.has('Suns Song', player)) or state._oot_reach_at_time('{r.name}', TimeOfDay.DAMPE, [], player)", mode='eval').body
+            return ast.parse("(tod & TimeOfDay.DAMPE) if tod else (state.has_all_of(('Ocarina', 'Suns Song')) or state.search.can_reach(spot.parent_region, age=age, tod=TimeOfDay.DAMPE))", mode='eval').body
         return ast.NameConstant(True)
 
 
@@ -486,29 +464,8 @@ class Rule_AST_Transformer(ast.NodeTransformer):
         rule = spot.rule_string.split('#', 1)[0].strip()
 
         access_rule = self.parse_rule(rule, spot)
-        set_rule(spot, access_rule)
+        spot.set_rule(access_rule)
         if access_rule is self.rule_cache.get('NameConstant(False)'):
             spot.never = True
         elif access_rule is self.rule_cache.get('NameConstant(True)'):
             spot.always = True
-
-    # Hijacking functions
-    def current_spot_child_access(self, node): 
-        r = self.current_spot if type(self.current_spot) == OOTRegion else self.current_spot.parent_region
-        return ast.parse(f"state._oot_reach_as_age('{r.name}', 'child', {self.player})", mode='eval').body
-
-    def current_spot_adult_access(self, node): 
-        r = self.current_spot if type(self.current_spot) == OOTRegion else self.current_spot.parent_region
-        return ast.parse(f"state._oot_reach_as_age('{r.name}', 'adult', {self.player})", mode='eval').body
-
-    def current_spot_starting_age_access(self, node): 
-        return self.current_spot_child_access(node) if self.world.starting_age == 'child' else self.current_spot_adult_access(node)
-
-    def has_bottle(self, node): 
-        return ast.parse(f"state._oot_has_bottle({self.player})", mode='eval').body
-
-    def can_live_dmg(self, node):
-        return ast.parse(f"state._oot_can_live_dmg({self.player}, {node.args[0].value})", mode='eval').body
-
-    def region_has_shortcuts(self, node):
-        return ast.parse(f"state._oot_region_has_shortcuts({self.player}, '{node.args[0].value}')", mode='eval').body

@@ -21,7 +21,7 @@ from .OoTR.ItemPool import generate_itempool, get_junk_item, get_junk_pool
 from .Region import OOTRegion
 from .OoTR.Region import TimeOfDay
 from .Rules import set_rules, set_shop_rules, set_entrances_based_rules
-from .OoTR.RuleParser import Rule_AST_Transformer
+from .RuleParser import Rule_AST_Transformer
 from .Options import OoTOptions, oot_option_groups
 from .Utils import data_path, read_json
 from .LocationList import dungeon_song_locations
