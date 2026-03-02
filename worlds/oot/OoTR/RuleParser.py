@@ -349,7 +349,7 @@ class Rule_AST_Transformer(ast.NodeTransformer):
                 value=ast.Name(id='state', ctx=ast.Load()),
                 attr='has',
                 ctx=ast.Load()),
-            args=[ast.Str(subrule_name), ast.Constant(self.player)],
+            args=[ast.Str(subrule_name),
             keywords=[])
         # Cache the subrule for any others in this region
         # (and reserve the item name in the process)
