@@ -2,7 +2,7 @@ from collections import deque
 import logging
 
 from .Region import TimeOfDay
-from .OoTR.Item import oot_is_item_of_type
+from .Item import oot_is_item_of_type
 
 from BaseClasses import CollectionState, MultiWorld
 from worlds.generic.Rules import add_rule, add_item_rule, forbid_item

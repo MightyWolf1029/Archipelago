@@ -15,7 +15,7 @@ from .Entrance import OOTEntrance
 from .OoTR.EntranceShuffle import shuffle_random_entrances, entrance_shuffle_table, EntranceShuffleError
 from .OoTR.HintList import getRequiredHints
 from .OoTR.Hints import HintArea, HintAreaNotFound, hint_dist_keys, get_hint_area, buildWorldGossipHints
-from .OoTR.Item import OOTItem, oot_data_to_ap_id, oot_is_item_of_type
+from .Item import OOTItem, oot_data_to_ap_id, oot_is_item_of_type
 from .OoTR.ItemList import item_table
 from .OoTR.ItemPool import generate_itempool, get_junk_item, get_junk_pool
 from .Region import OOTRegion
@@ -722,11 +722,11 @@ class OOTWorld(World):
     # Allowing any item name to be created is dangerous in case of plando, so this is a middle ground.
     def create_item(self, name: str, allow_arbitrary_name: bool = False):
         if name in item_table:
-            return OOTItem(name, self.player, item_table[name], False,
+            return OOTItem(name, self.player, False,
                            (name in self.nonadvancement_items if getattr(self, 'nonadvancement_items',
                                                                          None) else False))
         if allow_arbitrary_name:
-            return OOTItem(name, self.player, ('Event', True, None, None), True, False)
+            return OOTItem(name, self.player, True, False)
         raise Exception(f"Invalid item name: {name}")
 
     def make_event_item(self, name, location, item=None):

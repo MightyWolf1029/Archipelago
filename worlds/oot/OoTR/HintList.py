@@ -1,5 +1,5 @@
 from BaseClasses import LocationProgressType
-from .Item import OOTItem
+from ..Item import OOTItem # Temporary
 
 #   Abbreviations
 #       DMC     Death Mountain Crater

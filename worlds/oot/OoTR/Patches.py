@@ -8,7 +8,7 @@ import datetime
 from collections import defaultdict
 from functools import partial
 
-from .Item import OOTItem
+from ..Item import OOTItem # Temporary
 from .Location import DisableType
 from .LocationList import business_scrubs
 from .HintList import getHint

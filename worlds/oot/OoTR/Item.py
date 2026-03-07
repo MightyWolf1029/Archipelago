@@ -1,64 +1,192 @@
-import typing
-
-from BaseClasses import Item, ItemClassification
-
 from .ItemList import item_table
 
-def oot_data_to_ap_id(data, event): 
-    if event or data[2] is None or data[0] == 'Shop': 
-        return None
-    offset = 66000
-    if data[0] in ['Item', 'BossKey', 'Compass', 'Map', 'SmallKey', 'Token', 'GanonBossKey', 'HideoutSmallKey', 'Song']:
-        return offset + data[2]
-    else: 
-        raise Exception(f'Unexpected OOT item type found: {data[0]}')
 
+class ItemInfo(object):
+    items = {}
+    events = {}
+    bottles = set()
+    medallions = set()
+    stones = set()
+    junk = {}
 
-def ap_id_to_oot_data(ap_id): 
-    offset = 66000
-    val = ap_id - offset
-    try: 
-        return list(filter(lambda d: d[1][0] == 'Item' and d[1][2] == val, item_table.items()))[0]
-    except IndexError: 
-        raise Exception(f'Could not find desired item ID: {ap_id}')
-
-
-def oot_is_item_of_type(item, item_type):
-    if isinstance(item, OOTItem):
-        return item.type == item_type
-    if isinstance(item, str):
-        return item in item_table and item_table[item][0] == item_type
-    return False
-
-
-class OOTItem(Item):
-    game: str = "Ocarina of Time"
-    type: str
-
-    def __init__(self, name, player, data, event, force_not_advancement):
-        (type, advancement, index, special) = data
-        # "advancement" is True, False or None; some items are not advancement based on settings
-        if force_not_advancement:
-            classification = ItemClassification.useful
-        elif name == "Ice Trap":
-            classification = ItemClassification.trap
-        elif name in {'Gold Skulltula Token', 'Triforce Piece'}:
-            classification = ItemClassification.progression_skip_balancing
-        elif advancement:
-            classification = ItemClassification.progression
+    def __init__(self, name='', event=False):
+        if event:
+            type = 'Event'
+            progressive = True
+            itemID = None
+            special = None
         else:
-            classification = ItemClassification.filler
-        super(OOTItem, self).__init__(name, classification, oot_data_to_ap_id(data, event), player)
+            (type, progressive, itemID, special) = item_table[name]
+
+        self.name = name
+        self.advancement = (progressive is True)
+        self.priority = (progressive is False)
         self.type = type
-        self.index = index
         self.special = special or {}
-        self.price = special.get('price', None) if special else None
-        self.internal = False
+        self.index = itemID
+        self.price = self.special.get('price')
+        self.bottle = self.special.get('bottle', False)
+        self.medallion = self.special.get('medallion', False)
+        self.stone = self.special.get('stone', False)
+        self.alias = self.special.get('alias', None)
+        self.junk = self.special.get('junk', None)
+        self.trade = self.special.get('trade', False)
+
+
+for item_name in item_table:
+    ItemInfo.items[item_name] = ItemInfo(item_name)
+    if ItemInfo.items[item_name].bottle:
+        ItemInfo.bottles.add(item_name)
+    if ItemInfo.items[item_name].medallion:
+        ItemInfo.medallions.add(item_name)
+    if ItemInfo.items[item_name].stone:
+        ItemInfo.stones.add(item_name)
+    if ItemInfo.items[item_name].junk is not None:
+        ItemInfo.junk[item_name] = ItemInfo.items[item_name].junk
+
+
+class Item(object):
+
+    def __init__(self, name='', world=None, event=False):
+        self.name = name
+        self.location = None
+        self.event = event
+        if event:
+            if name not in ItemInfo.events:
+                ItemInfo.events[name] = ItemInfo(name, event=True)
+            self.info = ItemInfo.events[name]
+        else:
+            self.info = ItemInfo.items[name]
+        self.price = self.info.special.get('price')
+        self.world = world
+        self.looks_like_item = None
+        self.advancement = self.info.advancement
+        self.priority = self.info.priority
+        self.type = self.info.type
+        self.special = self.info.special
+        self.index = self.info.index
+        self.alias = self.info.alias
+
+
+    item_worlds_to_fix = {}
+
+    def copy(self, new_world=None):
+        if new_world is not None and self.world is not None and new_world.id != self.world.id:
+            new_world = None
+
+        new_item = Item(self.name, new_world, self.event)
+        new_item.price = self.price
+
+        if new_world is None and self.world is not None:
+            Item.item_worlds_to_fix[new_item] = self.world.id
+
+        return new_item
+
+
+    @classmethod
+    def fix_worlds_after_copy(cls, worlds):
+        items_fixed = []
+        for item, world_id in cls.item_worlds_to_fix.items():
+            item.world = worlds[world_id]
+            items_fixed.append(item)
+        for item in items_fixed:
+            del cls.item_worlds_to_fix[item]
+
 
     @property
-    def dungeonitem(self) -> bool:
-        return self.type in ['SmallKey', 'HideoutSmallKey', 'BossKey', 'GanonBossKey', 'Map', 'Compass']
-# Temporarily added for RuleParser. Will eventually be removed
+    def key(self):
+        return self.smallkey or self.bosskey
+
+
+    @property
+    def smallkey(self):
+        return self.type == 'SmallKey' or self.type == 'HideoutSmallKey'
+
+
+    @property
+    def bosskey(self):
+        return self.type == 'BossKey' or self.type == 'GanonBossKey'
+
+
+    @property
+    def map(self):
+        return self.type == 'Map'
+
+
+    @property
+    def compass(self):
+        return self.type == 'Compass'
+
+
+    @property
+    def dungeonitem(self):
+        return self.smallkey or self.bosskey or self.map or self.compass
+
+    @property
+    def unshuffled_dungeon_item(self):
+        return ((self.type == 'SmallKey' and self.world.settings.shuffle_smallkeys in ['remove','vanilla','dungeon']) or
+                (self.type == 'FortressSmallKey' and self.world.settings.shuffle_fortresskeys in ['vanilla']) or
+                (self.bosskey and self.world.settings.shuffle_bosskeys in ['remove','vanilla','dungeon']) or
+                ((self.map or self.compass) and (self.world.settings.shuffle_mapcompass in ['remove','startwith','vanilla','dungeon'])))
+
+    @property
+    def majoritem(self):
+        if self.type == 'Token':
+            return (self.world.settings.bridge == 'tokens' or self.world.settings.shuffle_ganon_bosskey == 'tokens' or
+                (self.world.settings.shuffle_ganon_bosskey == 'on_lacs' and self.world.settings.lacs_condition == 'tokens'))
+
+        if self.type in ('Drop', 'Event', 'Shop', 'DungeonReward') or not self.advancement:
+            return False
+
+        if self.name.startswith('Bombchus') and not self.world.settings.bombchus_in_logic:
+            return False
+
+        if self.name == 'Heart Container' or self.name.startswith('Piece of Heart'):
+            return (self.world.settings.bridge == 'hearts' or self.world.settings.shuffle_ganon_bosskey == 'hearts' or
+                (self.world.settings.shuffle_ganon_bosskey == 'on_lacs' and self.world.settings.lacs_condition == 'hearts'))
+
+        if self.map or self.compass:
+            return False
+        if self.type == 'SmallKey' and self.world.settings.shuffle_smallkeys in ['dungeon', 'vanilla']:
+            return False
+        if self.type == 'HideoutSmallKey' and self.world.settings.shuffle_hideoutkeys == 'vanilla':
+            return False
+        if self.type == 'BossKey' and self.world.settings.shuffle_bosskeys in ['dungeon', 'vanilla']:
+            return False
+        if self.type == 'GanonBossKey' and self.world.settings.shuffle_ganon_bosskey in ['dungeon', 'vanilla']:
+            return False
+
+        return True
+
+
+    @property
+    def goalitem(self):
+        return self.name in self.world.goal_items
+
+
+    def __str__(self):
+        return str(self.__unicode__())
+
+
+    def __unicode__(self):
+        return '%s' % self.name
+
+
+def ItemFactory(items, world=None, event=False):
+    if isinstance(items, str):
+        if not event and items not in ItemInfo.items:
+            raise KeyError('Unknown Item: %s' % items)
+        return Item(items, world, event)
+
+    ret = []
+    for item in items:
+        if not event and item not in ItemInfo.items:
+            raise KeyError('Unknown Item: %s' % item)
+        ret.append(Item(item, world, event))
+
+    return ret
+
+
 def MakeEventItem(name, location, item=None):
     if item is None:
         item = ItemFactory(name, location.world, event=True)
@@ -68,3 +196,14 @@ def MakeEventItem(name, location, item=None):
         location.internal = True
     location.world.event_items.add(name)
     return item
+
+
+def IsItem(name):
+    return name in item_table
+
+
+def ItemIterator(predicate=lambda loc: True, world=None):
+    for item_name in item_table:
+        item = ItemFactory(item_name, world)
+        if predicate(item):
+            yield item
